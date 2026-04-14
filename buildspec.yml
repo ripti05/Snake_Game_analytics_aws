@@ -1,0 +1,28 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 18  # or your required runtime
+    commands:
+      - echo Installing dependencies...
+      # Add your installation commands here
+      
+  pre_build:
+    commands:
+      - echo Pre-build phase started
+      # Add pre-build commands here
+      
+  build:
+    commands:
+      - echo Build phase started
+      # Add your build commands here
+      
+  post_build:
+    commands:
+      - echo Build completed
+      
+artifacts:
+  files:
+    - '**/*'
+  name: myapp-$(date +%Y-%m-%d)
