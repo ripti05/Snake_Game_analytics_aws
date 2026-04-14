@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Snake Analytics 🎮</title>
+
+  <style>
+    body {
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: linear-gradient(-45deg, #020617, #0f172a, #020617);
+      background-size: 400% 400%;
+      animation: gradientMove 10s ease infinite;
+      color: white;
+      font-family: Arial;
+    }
+
+    @keyframes gradientMove {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    .container {
+      width: 420px;
+      padding: 25px;
+      border-radius: 25px;
+      background: rgba(255,255,255,0.06);
+      backdrop-filter: blur(20px);
+      box-shadow: 0 0 60px rgba(34,197,94,0.2);
+      text-align: center;
+    }
+
+    button, select {
+      padding: 10px;
+      margin: 5px;
+      border-radius: 10px;
+      border: none;
+    }
+
+    button {
+      background: #22c55e;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    canvas {
+      background: #020617;
+      border-radius: 10px;
+      margin-top: 10px;
+    }
+
+    .hud {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 10px;
+    }
+
+    .badge {
+      background: rgba(255,255,255,0.1);
+      padding: 6px 12px;
+      border-radius: 10px;
+    }
+
+    #gameOverPanel {
+      margin-top: 15px;
+      padding: 15px;
+      border-radius: 12px;
+      background: rgba(0,0,0,0.5);
+    }
+
+    .analytics-box {
+      background: rgba(255,255,255,0.05);
+      padding: 10px;
+      border-radius: 10px;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="container">
+  <h2>🐍 Snake Analytics</h2>
+
+  <select id="difficulty">
+    <option value="200">Easy</option>
+    <option value="120">Medium</option>
+    <option value="70">Hard</option>
+  </select>
+
+  <button onclick="startGame()">▶ Start</button>
+
+  <canvas id="game" width="400" height="400"></canvas>
+
+  <div class="hud">
+    <div class="badge">Score: <span id="score">0</span></div>
+    <div class="badge">Status: <span id="status">Idle</span></div>
+  </div>
+
+  <div id="gameOverPanel" style="display:none;">
+    <h3>Game Over 🎯</h3>
+    <p>Your Score: <strong id="finalScore"></strong></p>
+
+    <button onclick="startGame()">🔁 Play Again</button>
+    <button id="analyzeBtn" onclick="analyzePerformance()" disabled>📊 Analyze</button>
+
+    <div id="analysisResult"></div>
+  </div>
+</div>
+
+<script>
+let sessionId;
+
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+let snake, dx, dy, food, score, speed, interval;
+let gameStarted = false;
+let startTime;
+
+const analyzeBtn = document.getElementById("analyzeBtn");
+
+document.addEventListener("keydown", changeDirection);
+
+function startGame() {
+  sessionId = Date.now();
+
+  snake = [{x: 10, y: 10}];
+  dx = 1;
+  dy = 0;
+  score = 0;
+  food = randomFood();
+  speed = parseInt(document.getElementById("difficulty").value);
+  gameStarted = true;
+  startTime = Date.now();
+
+  document.getElementById("status").innerText = "Playing";
+  document.getElementById("gameOverPanel").style.display = "none";
+  document.getElementById("analysisResult").innerHTML = "";
+
+  analyzeBtn.disabled = true;
+
+  clearInterval(interval);
+  interval = setInterval(gameLoop, speed);
+}
+
+function randomFood() {
+  return {
+    x: Math.floor(Math.random() * 20),
+    y: Math.floor(Math.random() * 20)
+  };
+}
+
+function changeDirection(e) {
+  if (!gameStarted) return;
+
+  if (e.key === "ArrowUp" && dy === 0) { dx = 0; dy = -1; }
+  if (e.key === "ArrowDown" && dy === 0) { dx = 0; dy = 1; }
+  if (e.key === "ArrowLeft" && dx === 0) { dx = -1; dy = 0; }
+  if (e.key === "ArrowRight" && dx === 0) { dx = 1; dy = 0; }
+}
+
+function gameLoop() {
+  let head = {x: snake[0].x + dx, y: snake[0].y + dy};
+
+  if (head.x < 0 || head.y < 0 || head.x >= 20 || head.y >= 20 ||
+      snake.some(s => s.x === head.x && s.y === head.y)) {
+    endGame();
+    return;
+  }
+
+  snake.unshift(head);
+
+  if (head.x === food.x && head.y === food.y) {
+    score++;
+    food = randomFood();
+  } else {
+    snake.pop();
+  }
+
+  draw();
+  sendEvent(head);
+}
+
+function draw() {
+  ctx.fillStyle = "#020617";
+  ctx.fillRect(0, 0, 400, 400);
+
+  snake.forEach((s, i) => {
+    ctx.fillStyle = i === 0 ? "#4ade80" : "#22c55e";
+    ctx.fillRect(s.x * 20, s.y * 20, 18, 18);
+  });
+
+  ctx.fillStyle = "red";
+  ctx.fillRect(food.x * 20, food.y * 20, 18, 18);
+
+  document.getElementById("score").innerText = score;
+}
+
+function endGame() {
+  clearInterval(interval);
+  gameStarted = false;
+
+  document.getElementById("status").innerText = "Game Over";
+  document.getElementById("finalScore").innerText = score;
+  document.getElementById("gameOverPanel").style.display = "block";
+
+  analyzeBtn.disabled = false;
+
+  sendEvent({
+    game_over: true,
+    final_score: score,
+    duration: Date.now() - startTime
+  });
+}
+
+async function sendEvent(data) {
+  await fetch("/event", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      session_id: sessionId,
+      player_id: 1,
+      ...data,
+      score: score,
+      speed: speed,
+      timestamp: new Date().toISOString()
+    })
+  });
+}
+
+async function analyzePerformance() {
+  const resultBox = document.getElementById("analysisResult");
+
+  const currentScore = score;
+
+  resultBox.innerHTML = "⏳ Analyzing...";
+
+  const res = await fetch(
+    `/analyze?session_id=${sessionId}&current_score=${currentScore}`
+  );
+
+  const data = await res.json();
+
+  let message = data.is_new_high
+    ? "🎉 NEW HIGH SCORE!"
+    : "👍 Keep trying!";
+
+  resultBox.innerHTML = `
+    <div class="analytics-box">
+      🎯 Your Score: ${currentScore}<br>
+      🏆 Previous Best: ${data.previous_max_score}<br>
+      ⭐ Final High Score: ${data.final_high_score}<br>
+      📊 ${message}
+    </div>
+  `;
+}</script>
+
+</body>
+</html>
